@@ -129,13 +129,16 @@ class QuoteHandler(SimpleHTTPRequestHandler):
         """使用 Playwright 搜索 1688"""
         try:
             from playwright.sync_api import sync_playwright
-        except ImportError:
-            print("⚠️  Playwright 未安装，返回模拟数据")
+            print("✅ Playwright 模块加载成功")
+        except ImportError as e:
+            print(f"⚠️  Playwright 未安装: {e}")
+            print("   请运行: pip install playwright && playwright install chromium")
             return self.get_mock_data(image_path)
         
-        # 检查是否有已登录的浏览器数据
-        # 尝试不使用登录，直接访问
-        print("🌐 使用普通浏览器模式...")
+        # 检查 Chromium 是否可用
+        print("🌐 初始化浏览器...")
+        print(f"   工作目录: {os.getcwd()}")
+        print(f"   图片路径: {image_path}")
         
         print(f"🔍 开始搜索: {image_path}")
         products = []
@@ -143,8 +146,11 @@ class QuoteHandler(SimpleHTTPRequestHandler):
         
         try:
             with sync_playwright() as p:
+                print("✅ Playwright 上下文创建成功")
                 # 使用普通浏览器 - 中文界面（但提取USD/销量/Super Factory等信息）
+                print("🚀 启动 Chromium 浏览器...")
                 browser = p.chromium.launch(headless=True)
+                print("✅ 浏览器启动成功")
                 context = browser.new_context(
                     viewport={"width": 1920, "height": 1080},
                     user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -678,9 +684,17 @@ class QuoteHandler(SimpleHTTPRequestHandler):
                 
         except Exception as e:
             print(f"❌ Playwright 错误: {e}")
+            print(f"   错误类型: {type(e).__name__}")
             import traceback
             traceback.print_exc()
-            return self.get_mock_data(image_path)
+            # 返回错误信息而不是 mock 数据，便于调试
+            return {
+                "success": False,
+                "message": f"搜索失败: {str(e)[:100]}",
+                "products": [],
+                "error": str(e),
+                "original_file": Path(image_path).name
+            }
         
         result = {
             "success": len(products) > 0,
