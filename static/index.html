@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1688 Quote System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=2">
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <span class="logo-icon">📦</span>
+            <h1>1688 Quote System</h1>
+        </div>
+        <p class="tagline">Upload product image to get wholesale prices and supplier information</p>
+    </header>
+
+    <main class="main-content">
+        <!-- 上传区域 -->
+        <section class="upload-section">
+            <div class="upload-card">
+                <div class="drop-zone" id="drop-zone">
+                    <div class="upload-icon">📤</div>
+                    <p class="drop-text">Drop image here or click to upload</p>
+                    <p class="drop-hint">Supports JPG, PNG, GIF, WebP</p>
+                </div>
+                
+                <div class="preview-container hidden" id="preview-container">
+                    <img src="" alt="Preview" class="preview-image" id="preview-image">
+                    <button class="remove-btn" id="remove-btn">×</button>
+                </div>
+                
+                <input type="file" id="file-input" accept="image/*">
+                <button class="search-btn" id="search-btn" disabled>
+                    Search Products
+                </button>
+            </div>
+        </section>
+
+        <!-- 搜索结果 -->
+        <section class="results-section" id="results-section">
+            <div class="results-header">
+                <h2 class="results-title">Search Results</h2>
+                <span class="results-count" id="results-count"></span>
+            </div>
+            
+            <div class="products-list" id="products-list">
+                <div class="list-header">
+                    <div>Image</div>
+                    <div>Product / Supplier</div>
+                    <div style="text-align:right">Price</div>
+                    <div>Weight</div>
+                    <div style="text-align:center">Shipping</div>
+                    <div style="text-align:right">Quote (USD)</div>
+                    <div style="text-align:center">Action</div>
+                </div>
+                <div id="products-body"></div>
+            </div>
+            
+            <a href="#" class="view-more-link hidden" id="view-more-link" target="_blank">
+                View more results on 1688 →
+            </a>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>💡 Search takes about 30-60 seconds to fetch detailed product information</p>
+    </footer>
+
+    <!-- 产品详情弹窗 -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-content" id="modal-content">
+            <button class="modal-close" id="modal-close">×</button>
+            
+            <div class="modal-body">
+                <div class="modal-image-section">
+                    <img src="" alt="Product" class="modal-image" id="modal-image">
+                </div>
+                
+                <div class="modal-info-section">
+                    <h2 class="modal-title" id="modal-title">Product Title</h2>
+                    
+                    <div class="modal-badges" id="modal-badges"></div>
+                    
+                    <div class="modal-price-box">
+                        <div class="modal-price-row">
+                            <span class="modal-price-label">Wholesale Price</span>
+                            <span class="modal-price-cny" id="modal-price-cny">¥0</span>
+                        </div>
+                        <div class="modal-price-row">
+                            <span class="modal-price-label">Cost (USD)</span>
+                            <span class="modal-price-usd" id="modal-price-usd">$0</span>
+                        </div>
+                        <div class="modal-price-row highlight">
+                            <span class="modal-price-label">Suggested Price</span>
+                            <span class="modal-suggested-price" id="modal-suggested-price">$0</span>
+                        </div>
+                        <div class="modal-price-row">
+                            <span class="modal-price-label">Profit Margin</span>
+                            <span class="modal-margin" id="modal-margin">0%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="modal-specs">
+                        <h3>Product Specifications</h3>
+                        <div class="modal-spec-grid" id="modal-specs"></div>
+                    </div>
+                    
+                    <div class="modal-supplier">
+                        <h3>Supplier Information</h3>
+                        <div class="modal-supplier-info" id="modal-supplier"></div>
+                    </div>
+                    
+                    <div class="modal-actions">
+                        <a href="#" class="modal-btn primary" id="modal-1688-link" target="_blank">
+                            View on 1688 →
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js?v=4"></script>
+</body>
+</html>
