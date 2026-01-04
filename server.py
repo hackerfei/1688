@@ -15,7 +15,8 @@ import subprocess
 
 # 获取脚本目录
 SCRIPT_DIR = Path(os.path.dirname(os.path.abspath(__file__)) if '__file__' in dir() else os.getcwd())
-PORT = 8080
+# 使用环境变量 PORT（Railway/Render 等平台会设置），默认 8080
+PORT = int(os.environ.get("PORT", 8080))
 UPLOAD_DIR = SCRIPT_DIR / "uploads"
 STATIC_DIR = SCRIPT_DIR / "static"
 

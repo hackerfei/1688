@@ -114,7 +114,56 @@ Field: image (文件)
 - 识别包邮和条件包邮
 - 简洁的列表式UI界面
 
+## 部署指南
+
+### ⚠️ 重要：本项目不适合 Vercel
+
+由于使用了 Playwright 浏览器自动化，本项目**不能**部署到 Vercel 等 Serverless 平台。
+
+### 推荐部署方式
+
+#### 方式一：Railway（推荐）
+
+1. 访问 [railway.app](https://railway.app) 并登录
+2. 点击 "New Project" → "Deploy from GitHub repo"
+3. 选择你的仓库
+4. Railway 会自动检测 Dockerfile 并部署
+5. 设置端口环境变量：`PORT=8080`
+
+#### 方式二：Render
+
+1. 访问 [render.com](https://render.com) 并登录
+2. 创建 "New Web Service"
+3. 连接 GitHub 仓库
+4. 选择 Docker 环境
+5. 设置端口 8080
+
+#### 方式三：本地 / VPS
+
+```bash
+# 1. 克隆仓库
+git clone https://github.com/你的用户名/1688.git
+cd 1688
+
+# 2. 安装依赖
+pip install playwright
+playwright install chromium
+
+# 3. 启动服务
+python server.py
+
+# 4. 访问 http://localhost:8080
+```
+
+### 为什么不能用 Vercel？
+
+| 需求 | Vercel 支持 | 本项目需要 |
+|------|-------------|------------|
+| 持续运行服务器 | ❌ | ✅ HTTPServer |
+| Playwright/浏览器 | ❌ | ✅ Chromium |
+| 文件系统写入 | ❌ | ✅ 上传图片 |
+| 长时间执行(>10秒) | ❌ | ✅ 30-60秒 |
+
 ## License
 
 MIT
-# 1688
