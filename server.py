@@ -434,66 +434,39 @@ class QuoteHandler(SimpleHTTPRequestHandler):
                     url_status = "✅有链接" if p.get('product_url') else "❌无链接"
                     print(f"   商品{i+1}: ¥{p.get('price', '-')} | {url_status} | 销量:{p.get('sold', '-')} | 回购率:{p.get('repurchase_rate', '-')}")
                 
-                # 通过点击商品图片获取详细信息
-                print(f"📦 点击获取 {len(products)} 个商品的详细信息...")
+                # 通过直接导航获取详细信息（更可靠）
+                print(f"📦 获取 {len(products)} 个商品的详细信息...")
                 
                 for i, product in enumerate(products):
-                    if i >= 12:  # 限制数量
+                    if i >= 8:  # 限制数量，避免耗时过长
                         break
                     try:
-                        img_url = product.get('image_url', '')
-                        if not img_url:
+                        product_url = product.get('product_url', '')
+                        
+                        # 如果没有链接，跳过
+                        if not product_url or 'detail.1688.com' not in product_url:
+                            print(f"   ⚠️ 商品{i+1}: 无有效链接，跳过")
                             continue
                         
-                        # 滚动到商品可见位置
-                        row = i // 3
-                        page.evaluate(f"window.scrollTo(0, {row * 350 + 300})")
-                        page.wait_for_timeout(500)
+                        # 直接在新标签页打开详情页
+                        print(f"   🔗 商品{i+1}: 打开详情页...")
+                        detail_page = context.new_page()
                         
-                        # 点击商品图片
-                        clicked = False
-                        
-                        # 提取图片关键标识
-                        img_key = ''
-                        if 'cbu01' in img_url:
-                            parts = img_url.split('/')
-                            for p in parts:
-                                if p.startswith('O1CN') or (len(p) > 10 and '.' not in p):
-                                    img_key = p[:15]
-                                    break
-                        
-                        # 方法1: 使用图片关键标识匹配
-                        if img_key:
-                            try:
-                                page.click(f'img[src*="{img_key}"]', timeout=2000)
-                                clicked = True
-                            except:
-                                pass
-                        
-                        # 方法2: 通过索引点击搜索结果中的图片
-                        if not clicked:
-                            try:
-                                # 搜索结果区域的图片（排除顶部上传预览区）
-                                result_imgs = page.locator('img[src*="cbu01"][width]')
-                                count = result_imgs.count()
-                                if count > i:
-                                    result_imgs.nth(i).click(timeout=2000)
-                                    clicked = True
-                            except:
-                                pass
-                        
-                        if not clicked:
-                            print(f"   ⚠️ 商品{i+1}: 无法点击")
+                        try:
+                            detail_page.goto(product_url, timeout=15000, wait_until="domcontentloaded")
+                            detail_page.wait_for_timeout(2000)
+                        except Exception as nav_err:
+                            print(f"   ⚠️ 商品{i+1}: 页面加载失败 - {str(nav_err)[:50]}")
+                            detail_page.close()
                             continue
                         
-                        # 等待新页面
-                        page.wait_for_timeout(3500)
+                        # 检查是否被重定向到登录页
+                        if 'login' in detail_page.url.lower():
+                            print(f"   ⚠️ 商品{i+1}: 需要登录")
+                            detail_page.close()
+                            continue
                         
-                        # 检查新窗口
-                        all_pages = context.pages
-                        if len(all_pages) > 1:
-                            detail_page = all_pages[-1]
-                            detail_page.wait_for_timeout(3000)
+                        if detail_page:
                             
                             # 尝试点击SKU选项来触发运费显示
                             sku_clicked = False
@@ -722,8 +695,6 @@ class QuoteHandler(SimpleHTTPRequestHandler):
                                 print(f"   ⚠️ 商品{i+1}: 无详情")
                             
                             detail_page.close()
-                        else:
-                            print(f"   ⚠️ 商品{i+1}: 未打开新窗口")
                             
                     except Exception as e:
                         print(f"   ⚠️ 商品{i+1}: {str(e)[:40]}")
