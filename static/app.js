@@ -330,6 +330,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <img src="${product.image_url || '/static/placeholder.png'}" 
                  alt="${product.title || ''}" 
                  class="product-image"
+                 referrerpolicy="no-referrer"
                  onerror="this.src='/static/placeholder.png'">
             
             <div class="product-info">
