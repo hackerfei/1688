@@ -573,58 +573,68 @@ class QuoteHandler(SimpleHTTPRequestHandler):
                                         }
                                     }
                                     
-                                    // ===== 重量提取 - 多种方式 =====
+                                    // ===== 重量提取 - 多种方式 (增强版) =====
                                     
-                                    // 方法1: 从包装信息表格提取（表头包含"重量(g)"）
+                                    // 方法1: 从包装信息表格提取
                                     const tables = document.querySelectorAll('table');
                                     for (const table of tables) {
                                         if (result.weight) break;
-                                        const headerRow = table.querySelector('tr');
-                                        if (headerRow) {
-                                            const headers = Array.from(headerRow.querySelectorAll('th, td')).map(h => h.innerText.trim());
-                                            const weightIdx = headers.findIndex(h => h.includes('重量'));
-                                            if (weightIdx >= 0) {
-                                                const dataRows = table.querySelectorAll('tr');
-                                                if (dataRows.length > 1) {
-                                                    const cells = dataRows[1].querySelectorAll('td');
-                                                    if (cells[weightIdx]) {
-                                                        const w = cells[weightIdx].innerText.trim();
-                                                        if (/^\d{2,5}$/.test(w)) {
-                                                            result.weight = w;
-                                                        }
-                                                    }
-                                                }
+                                        const tableText = table.innerText;
+                                        if (tableText.includes('重量') || tableText.includes('克') || tableText.includes('g')) {
+                                            // 直接从表格文本匹配
+                                            const wm = tableText.match(/(?:重量|净重|毛重)[^\\d]*(\\d{2,5})/);
+                                            if (wm) {
+                                                result.weight = wm[1];
+                                                break;
                                             }
                                         }
                                     }
                                     
-                                    // 方法2: 从商品属性区域提取
-                                    if (!result.weight) {
-                                        const attrMatch = text.match(/重量[（(]?[gG克]?[)）]?[：:\s]*(\d{2,5})/);
-                                        if (attrMatch) result.weight = attrMatch[1];
-                                    }
-                                    
-                                    // 方法3: 从文本中提取 "净重/毛重: XXXg"
+                                    // 方法2: 从商品属性区域提取 (多种格式)
                                     if (!result.weight) {
                                         const patterns = [
-                                            /净重[：:\s]*(\d+\.?\d*)\s*[gG克]/,
-                                            /毛重[：:\s]*(\d+\.?\d*)\s*[gG克]/,
-                                            /单品重量[：:\s]*(\d+\.?\d*)/
+                                            /重量[（(]?[gG克]?[)）]?[：:\s]*(\d{2,5})/,
+                                            /(?:净重|毛重|单品重量)[：:\s]*(\d+\.?\d*)\s*[gG克]?/,
+                                            /(\d{3,4})\s*[gG克](?:\\/件)?/,
+                                            /重[：:\s]*(\d{3,5})\s*[gG克]?/,
+                                            /(\d{3,4})g\\/件/,
+                                            /克重[：:\s]*(\d{2,5})/
                                         ];
                                         for (const p of patterns) {
                                             const m = text.match(p);
-                                            if (m && parseFloat(m[1]) > 10 && parseFloat(m[1]) < 50000) {
+                                            if (m && parseFloat(m[1]) >= 50 && parseFloat(m[1]) <= 10000) {
                                                 result.weight = m[1];
                                                 break;
                                             }
                                         }
                                     }
                                     
-                                    // 方法4: 匹配类似 "500g" 的格式
+                                    // 方法3: 从页面元素查找
                                     if (!result.weight) {
-                                        const m = text.match(/(\d{3,4})\s*[gG克]\b/);
-                                        if (m && parseFloat(m[1]) > 50 && parseFloat(m[1]) < 5000) {
-                                            result.weight = m[1];
+                                        const attrEls = document.querySelectorAll('[class*="attr"], [class*="param"], [class*="spec"], [class*="detail"]');
+                                        for (const el of attrEls) {
+                                            const t = el.innerText;
+                                            if (t.includes('重量') || t.includes('克重')) {
+                                                const m = t.match(/(\d{2,5})\s*[gG克]?/);
+                                                if (m && parseFloat(m[1]) >= 50 && parseFloat(m[1]) <= 10000) {
+                                                    result.weight = m[1];
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    // 方法4: 宽松匹配 - 从全文找合理的重量值
+                                    if (!result.weight) {
+                                        // 匹配 "XXXg" 或 "XXX克" 格式
+                                        const allWeights = text.match(/(\d{3,4})\s*[gG克]/g) || [];
+                                        for (const w of allWeights) {
+                                            const num = parseInt(w);
+                                            // 服装重量通常在 200-2000g 之间
+                                            if (num >= 200 && num <= 2000) {
+                                                result.weight = num.toString();
+                                                break;
+                                            }
                                         }
                                     }
                                     
@@ -704,11 +714,10 @@ class QuoteHandler(SimpleHTTPRequestHandler):
                                 if detail_page.url and 'detail.1688.com' in detail_page.url:
                                     product['product_url'] = detail_page.url
                                 # 显示更丰富的信息
-                                weight_str = f"{detail.get('weight', '')}g" if detail.get('weight') else '-'
+                                weight_str = f"{product.get('weight', '')}g" if product.get('weight') else '无重量'
                                 sold_str = product.get('sold', '-') or '-'
-                                factory_tag = '⭐Super' if product.get('super_factory') else ''
-                                supplier_str = (detail.get('supplier') or product.get('supplier', ''))[:18]
-                                print(f"   ✅ 商品{i+1}: {weight_str} | 销量:{sold_str} | {factory_tag} {supplier_str}")
+                                rate_str = product.get('repurchase_rate', '-') or '-'
+                                print(f"   ✅ 商品{i+1}: 重量:{weight_str} | 销量:{sold_str} | 回购率:{rate_str}")
                             else:
                                 print(f"   ⚠️ 商品{i+1}: 无详情")
                             
