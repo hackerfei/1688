@@ -271,45 +271,86 @@ class QuoteHandler(SimpleHTTPRequestHandler):
                                     const usdMatch = text.match(/[≈≃]?\\s*\\$\\s*(\\d+\\.?\\d*)/);
                                     if (usdMatch) usdPrice = '$' + usdMatch[1];
                                     
-                                    // ===== 提取销量 =====
+                                    // ===== 提取销量 (增强版) =====
                                     let soldCount = '';
-                                    // 英文: "1K+ sold", "8K+ sold", "900+ sold"
-                                    let soldMatch = text.match(/(\\d+[KkMm]?\\+?)\\s*sold/i);
+                                    // 英文: "1K+ sold", "8K+ sold", "900+ sold", "1.2K sold"
+                                    let soldMatch = text.match(/(\\d+\\.?\\d*[KkMm]?\\+?)\\s*sold/i);
                                     if (!soldMatch) {
-                                        // 中文: "成交123笔", "已售1000+", "销量1234"
-                                        soldMatch = text.match(/(?:成交|已售|销量)[：:\\s]*(\\d+[万+]*)/);
+                                        // 中文: "成交123笔", "已售1000+", "销量1234", "月销1234"
+                                        soldMatch = text.match(/(?:成交|已售|销量|月销)[：:\\s]*(\\d+[万+]*)/);
                                     }
                                     if (!soldMatch) {
-                                        // 中文: "123件" 
-                                        soldMatch = text.match(/(\\d{2,})[+]?件/);
+                                        // 中文: "123件已售", "1000+件"
+                                        soldMatch = text.match(/(\\d+\\.?\\d*万?)[+]?件(?:已售)?/);
                                     }
-                                    if (soldMatch) soldCount = soldMatch[1] + (soldMatch[0].includes('sold') ? ' sold' : '件');
+                                    if (!soldMatch) {
+                                        // 纯数字+sold格式
+                                        soldMatch = text.match(/(\\d{2,}\\+?)\\s*(?:sold|件|笔)/i);
+                                    }
+                                    if (soldMatch) {
+                                        soldCount = soldMatch[1];
+                                        if (text.includes('sold')) soldCount += ' sold';
+                                        else if (!soldCount.includes('万') && !soldCount.includes('件')) soldCount += '件';
+                                    }
                                     
-                                    // ===== 提取回购率 =====
+                                    // ===== 提取回购率 (增强版) =====
                                     let repurchaseRate = '';
-                                    const rateMatch = text.match(/(?:Repurchase Rate|回头率|回购率)[：:\\s]*(\\d+)%?/i);
+                                    // 多种格式: "回头率52%", "Repurchase Rate 52%", "复购率52%", "52%回头率"
+                                    let rateMatch = text.match(/(?:Repurchase\\s*Rate|回头率|回购率|复购率)[：:\\s]*(\\d+)%?/i);
+                                    if (!rateMatch) {
+                                        // 反向匹配: "52%回头率"
+                                        rateMatch = text.match(/(\\d+)%\\s*(?:回头率|回购率|复购率)/);
+                                    }
+                                    if (!rateMatch) {
+                                        // 匹配百分比附近的文字
+                                        const percentMatch = text.match(/(\\d{2,3})%/g);
+                                        if (percentMatch) {
+                                            for (const pm of percentMatch) {
+                                                const num = parseInt(pm);
+                                                // 回购率通常在 20-80% 之间
+                                                if (num >= 20 && num <= 80) {
+                                                    const idx = text.indexOf(pm);
+                                                    const context = text.slice(Math.max(0, idx - 10), idx + 15);
+                                                    if (context.includes('回') || context.includes('购') || context.includes('Rate')) {
+                                                        rateMatch = [pm, num.toString()];
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                     if (rateMatch) repurchaseRate = rateMatch[1] + '%';
                                     
                                     // ===== 优质厂家标记 =====
                                     const superFactory = text.includes('Super Factory') || text.includes('优质厂家') || 
-                                                        text.includes('实力厂家') || text.includes('牛头') || text.includes('金牌');
+                                                        text.includes('实力厂家') || text.includes('牛头') || text.includes('金牌') ||
+                                                        text.includes('实力商家') || text.includes('源头厂家');
                                     
                                     // ===== Choice标记 =====
-                                    const isChoice = text.includes('Choice') || text.includes('精选');
+                                    const isChoice = text.includes('Choice') || text.includes('精选') || text.includes('严选');
                                     
                                     // ===== 热销标记 =====
                                     const hotSelling = text.includes('Hot selling') || text.includes('热销') || 
-                                                       text.includes('爆款') || text.includes('火爆');
+                                                       text.includes('爆款') || text.includes('火爆') || text.includes('热卖');
                                     
-                                    // ===== 供应商 =====
+                                    // ===== 供应商 (增强版) =====
                                     let supplier = '';
-                                    const supplierMatch = text.match(/入驻(\\d+)年\\s*([^\\n¥$]+)/);
+                                    // 多种格式匹配
+                                    let supplierMatch = text.match(/入驻(\\d+)年\\s*([^\\n¥$]+)/);
+                                    if (!supplierMatch) {
+                                        // 匹配公司名称
+                                        supplierMatch = text.match(/([\\u4e00-\\u9fa5]{2,}(?:公司|厂|店|商行|贸易|服饰|服装))/);
+                                    }
                                     if (supplierMatch) {
-                                        supplier = supplierMatch[2].trim().slice(0, 25);
+                                        supplier = (supplierMatch[2] || supplierMatch[1] || '').trim().slice(0, 30);
                                     }
                                     
+                                    // 入驻年限
+                                    let yearsMatch = text.match(/入驻(\\d+)年/);
+                                    const years_on_platform = yearsMatch ? parseInt(yearsMatch[1]) : 0;
+                                    
                                     // 包邮标记
-                                    const freeShipping = text.includes('包邮') || text.includes('免运费') || text.includes('Free shipping');
+                                    const freeShipping = text.includes('包邮') || text.includes('免运费') || text.includes('Free shipping') || text.includes('免邮');
                                     
                                     products.push({
                                         title: title.slice(0, 100),
@@ -323,8 +364,10 @@ class QuoteHandler(SimpleHTTPRequestHandler):
                                         is_choice: isChoice,
                                         hot_selling: hotSelling,
                                         supplier: supplier,
+                                        years_on_platform: years_on_platform,
                                         shipping: freeShipping ? '包邮' : '',
-                                        weight: ''
+                                        weight: '',
+                                        min_order: '1件起批'
                                     });
                                     
                                     break;
@@ -343,6 +386,11 @@ class QuoteHandler(SimpleHTTPRequestHandler):
                         }).slice(0, 12);
                     }
                 """)
+                
+                # 打印提取到的数据概览
+                print(f"📦 提取到 {len(products)} 个商品")
+                for i, p in enumerate(products[:3]):  # 只打印前3个
+                    print(f"   商品{i+1}: 价格¥{p.get('price', '-')} | 销量:{p.get('sold', '-')} | 回购率:{p.get('repurchase_rate', '-')} | 厂家:{p.get('super_factory', False)}")
                 
                 # 通过点击商品图片获取详细信息
                 print(f"📦 点击获取 {len(products)} 个商品的详细信息...")
