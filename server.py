@@ -358,16 +358,34 @@ class QuoteHandler(SimpleHTTPRequestHandler):
                                     // 包邮标记
                                     const freeShipping = text.includes('包邮') || text.includes('免运费') || text.includes('Free shipping') || text.includes('免邮');
                                     
-                                    // ===== 提取商品链接 =====
+                                    // ===== 提取商品链接 (改进版) =====
                                     let productUrl = '';
+                                    
+                                    // 需要排除的链接类型
+                                    const excludePatterns = ['chat', 'im.1688', 'message', 'contact', 'wangwang', 'aliww', 'talk'];
+                                    
+                                    // 验证是否是有效的商品详情链接
+                                    const isValidProductUrl = (href) => {
+                                        if (!href) return false;
+                                        // 必须包含 offer 或 detail
+                                        if (!href.includes('offer') && !href.includes('detail.1688.com')) return false;
+                                        // 排除聊天/联系链接
+                                        for (const pattern of excludePatterns) {
+                                            if (href.toLowerCase().includes(pattern)) return false;
+                                        }
+                                        // 应该包含商品ID (数字)
+                                        if (!/offer\\/\\d+|detail.*\\d+/.test(href)) return false;
+                                        return true;
+                                    };
+                                    
                                     // 向上查找包含 href 的 a 标签
                                     let linkContainer = container;
                                     for (let j = 0; j < 5 && linkContainer; j++) {
-                                        const links = linkContainer.querySelectorAll('a[href*="1688.com"], a[href*="detail"], a[href*="offer"]');
+                                        const links = linkContainer.querySelectorAll('a[href*="offer"], a[href*="detail.1688.com"]');
                                         if (links.length > 0) {
                                             for (const link of links) {
                                                 const href = link.href || '';
-                                                if (href.includes('detail.1688.com') || href.includes('offer')) {
+                                                if (isValidProductUrl(href)) {
                                                     productUrl = href;
                                                     break;
                                                 }
@@ -376,13 +394,16 @@ class QuoteHandler(SimpleHTTPRequestHandler):
                                         }
                                         linkContainer = linkContainer.parentElement;
                                     }
+                                    
                                     // 如果没找到，尝试从图片的父链接获取
                                     if (!productUrl) {
                                         let imgParent = img.parentElement;
                                         for (let j = 0; j < 3 && imgParent; j++) {
                                             if (imgParent.tagName === 'A' && imgParent.href) {
-                                                productUrl = imgParent.href;
-                                                break;
+                                                if (isValidProductUrl(imgParent.href)) {
+                                                    productUrl = imgParent.href;
+                                                    break;
+                                                }
                                             }
                                             imgParent = imgParent.parentElement;
                                         }
@@ -431,8 +452,11 @@ class QuoteHandler(SimpleHTTPRequestHandler):
                 # 打印提取到的数据概览
                 print(f"📦 提取到 {len(products)} 个商品")
                 for i, p in enumerate(products[:3]):  # 只打印前3个
-                    url_status = "✅有链接" if p.get('product_url') else "❌无链接"
-                    print(f"   商品{i+1}: ¥{p.get('price', '-')} | {url_status} | 销量:{p.get('sold', '-')} | 回购率:{p.get('repurchase_rate', '-')}")
+                    url = p.get('product_url', '')
+                    url_short = url[:60] + '...' if len(url) > 60 else url
+                    url_status = f"✅{url_short}" if url else "❌无链接"
+                    print(f"   商品{i+1}: ¥{p.get('price', '-')} | {url_status}")
+                    print(f"          销量:{p.get('sold', '-')} | 回购率:{p.get('repurchase_rate', '-')}")
                 
                 # 通过直接导航获取详细信息（更可靠）
                 print(f"📦 获取 {len(products)} 个商品的详细信息...")
