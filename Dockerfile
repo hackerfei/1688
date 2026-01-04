@@ -1,7 +1,7 @@
 # 1688 Quote System - Docker 配置
 # 使用 Playwright 官方镜像，已包含所有浏览器依赖
 
-FROM mcr.microsoft.com/playwright/python:v1.40.0-jammy
+FROM mcr.microsoft.com/playwright/python:v1.57.0-jammy
 
 WORKDIR /app
 
