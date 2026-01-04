@@ -1,0 +1,23 @@
+# 临时上传文件
+uploads/*.jpg
+uploads/*.png
+uploads/*.webp
+uploads/*.gif
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# 浏览器数据
+browser_data/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# macOS
+.DS_Store
+
