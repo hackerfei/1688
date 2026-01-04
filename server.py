@@ -358,12 +358,47 @@ class QuoteHandler(SimpleHTTPRequestHandler):
                                     // 包邮标记
                                     const freeShipping = text.includes('包邮') || text.includes('免运费') || text.includes('Free shipping') || text.includes('免邮');
                                     
+                                    // ===== 提取商品链接 =====
+                                    let productUrl = '';
+                                    // 向上查找包含 href 的 a 标签
+                                    let linkContainer = container;
+                                    for (let j = 0; j < 5 && linkContainer; j++) {
+                                        const links = linkContainer.querySelectorAll('a[href*="1688.com"], a[href*="detail"], a[href*="offer"]');
+                                        if (links.length > 0) {
+                                            for (const link of links) {
+                                                const href = link.href || '';
+                                                if (href.includes('detail.1688.com') || href.includes('offer')) {
+                                                    productUrl = href;
+                                                    break;
+                                                }
+                                            }
+                                            if (productUrl) break;
+                                        }
+                                        linkContainer = linkContainer.parentElement;
+                                    }
+                                    // 如果没找到，尝试从图片的父链接获取
+                                    if (!productUrl) {
+                                        let imgParent = img.parentElement;
+                                        for (let j = 0; j < 3 && imgParent; j++) {
+                                            if (imgParent.tagName === 'A' && imgParent.href) {
+                                                productUrl = imgParent.href;
+                                                break;
+                                            }
+                                            imgParent = imgParent.parentElement;
+                                        }
+                                    }
+                                    
+                                    // ===== 尝试从搜索结果提取重量 =====
+                                    let weight = '';
+                                    const weightMatch = text.match(/(?:重量|净重|毛重)[：:\s]*(\d+)\s*[gG克]/);
+                                    if (weightMatch) weight = weightMatch[1];
+                                    
                                     products.push({
                                         title: title.slice(0, 100),
                                         price: priceMatch[1],
                                         usd_price: usdPrice,
                                         image_url: img.src,
-                                        product_url: '',
+                                        product_url: productUrl,
                                         sold: soldCount,
                                         repurchase_rate: repurchaseRate,
                                         super_factory: superFactory,
@@ -372,7 +407,7 @@ class QuoteHandler(SimpleHTTPRequestHandler):
                                         supplier: supplier,
                                         years_on_platform: years_on_platform,
                                         shipping: freeShipping ? '包邮' : '',
-                                        weight: '',
+                                        weight: weight,
                                         min_order: '1件起批'
                                     });
                                     
@@ -396,7 +431,8 @@ class QuoteHandler(SimpleHTTPRequestHandler):
                 # 打印提取到的数据概览
                 print(f"📦 提取到 {len(products)} 个商品")
                 for i, p in enumerate(products[:3]):  # 只打印前3个
-                    print(f"   商品{i+1}: 价格¥{p.get('price', '-')} | 销量:{p.get('sold', '-')} | 回购率:{p.get('repurchase_rate', '-')} | 厂家:{p.get('super_factory', False)}")
+                    url_status = "✅有链接" if p.get('product_url') else "❌无链接"
+                    print(f"   商品{i+1}: ¥{p.get('price', '-')} | {url_status} | 销量:{p.get('sold', '-')} | 回购率:{p.get('repurchase_rate', '-')}")
                 
                 # 通过点击商品图片获取详细信息
                 print(f"📦 点击获取 {len(products)} 个商品的详细信息...")
@@ -656,9 +692,17 @@ class QuoteHandler(SimpleHTTPRequestHandler):
                                 }
                             """)
                             
-                            if detail and (detail.get('weight') or detail.get('supplier')):
-                                product.update(detail)
-                                product['product_url'] = detail_page.url
+                            if detail:
+                                # 只更新有值的字段，保留搜索页已获取的数据
+                                if detail.get('weight'):
+                                    product['weight'] = detail['weight']
+                                if detail.get('shipping'):
+                                    product['shipping'] = detail['shipping']
+                                if detail.get('supplier') and not product.get('supplier'):
+                                    product['supplier'] = detail['supplier']
+                                # 更新商品URL为详情页URL（更准确）
+                                if detail_page.url and 'detail.1688.com' in detail_page.url:
+                                    product['product_url'] = detail_page.url
                                 # 显示更丰富的信息
                                 weight_str = f"{detail.get('weight', '')}g" if detail.get('weight') else '-'
                                 sold_str = product.get('sold', '-') or '-'
